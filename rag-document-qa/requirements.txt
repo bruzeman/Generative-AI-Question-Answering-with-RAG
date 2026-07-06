@@ -1,0 +1,8 @@
+# requirements.txt
+langchain
+langchain-openai
+pinecone-client
+streamlit
+python-dotenv
+pypdf
+tiktoken
