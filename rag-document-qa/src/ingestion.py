@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFDirectoryLoader
@@ -11,6 +12,27 @@ from langchain_huggingface import HuggingFaceEmbeddings
 # Load API keys from the .env file
 load_dotenv()
 
+def clean_page_text(text: str) -> str:
+    """
+    Strips repeated header/footer boilerplate that appears on nearly every page
+    of long reports (e.g. section running-headers, standalone page numbers).
+    This prevents that repeated text from dominating small chunk embeddings.
+    """
+    # Remove the repeated running header, e.g.:
+    # "STRATEGIC REVIEW FINANCIAL REPORT ADDITIONAL INFORMATION 51"
+    text = re.sub(
+        r"^.*STRATEGIC REVIEW.*FINANCIAL REPORT.*ADDITIONAL INFORMATION.*\d*\s*$",
+        "",
+        text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    # Remove standalone page-number-only lines
+    text = re.sub(r"^\s*\d{1,4}\s*$", "", text, flags=re.MULTILINE)
+    # Collapse resulting multiple blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 def ingest_and_chunk_documents(data_directory: str):
     """
     Loads all PDF documents from a specified directory and splits them into text chunks.
@@ -22,10 +44,17 @@ def ingest_and_chunk_documents(data_directory: str):
     if not documents:
         print(f"Error: No PDF documents found in {data_directory}.")
         return None
-        
+
+    # Strip repeated header/footer boilerplate before chunking so it doesn't
+    # pollute chunk embeddings (common issue with long annual-report-style PDFs)
+    for doc in documents:
+        doc.page_content = clean_page_text(doc.page_content)
+
+    # Larger chunks + more overlap preserve more surrounding context per chunk,
+    # which matters a lot for broad/summary-style questions on long documents
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=1200,
+        chunk_overlap=200,
         separators=["\n\n", "\n", " ", ""]
     )
     

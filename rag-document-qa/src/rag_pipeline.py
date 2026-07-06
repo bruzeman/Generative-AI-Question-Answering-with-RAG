@@ -26,8 +26,10 @@ def get_rag_chain():
 
     vectorstore = PineconeVectorStore(index_name=index_name, embedding=embeddings)
     
-    # Configure the retriever to fetch the top 3 most relevant chunks
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    # Configure the retriever to fetch the top 8 most relevant chunks
+    # (bumped up from 3 - broad/summary questions on long documents need
+    # more retrieved context than narrow factual questions do)
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
 
     # 3. Initialize the free HuggingFace LLM
     # Qwen2.5-7B-Instruct is served by several providers (Together, Fireworks, etc.),
