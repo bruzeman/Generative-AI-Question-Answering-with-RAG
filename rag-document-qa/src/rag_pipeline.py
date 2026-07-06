@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint
+from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
 from langchain_pinecone import PineconeVectorStore
 
 # UPDATED IMPORTS:
@@ -30,13 +30,17 @@ def get_rag_chain():
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
     # 3. Initialize the free HuggingFace LLM
-    # Switched to Mistral-7B-Instruct-v0.3 which is well-supported for text-generation
-    llm = HuggingFaceEndpoint(
-        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
-        task="text-generation",
+    # Qwen2.5-7B-Instruct is served by several providers (Together, Fireworks, etc.),
+    # unlike the -1M variant which was only hosted by Featherless AI.
+    # provider="auto" tells HF to route across ALL enabled providers on the account
+    # instead of defaulting to just "hf-inference", which doesn't host every model.
+    llm_endpoint = HuggingFaceEndpoint(
+        repo_id="Qwen/Qwen2.5-7B-Instruct",
+        provider="auto",
         max_new_tokens=512,
         temperature=0.3
     )
+    llm = ChatHuggingFace(llm=llm_endpoint)
 
     # 4. Construct the Prompt Template
     # This strictly commands the LLM to only use the retrieved context.
